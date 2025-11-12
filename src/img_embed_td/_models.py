@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-import torch
-import numpy as np
-import einops
-import torch.nn.functional as F
 
+import einops
+import numpy as np
+import torch
+import torch.nn.functional as F
 from transformers import AutoConfig, AutoImageProcessor, AutoModel
 
 
@@ -38,14 +38,14 @@ class VisionModel(ABC):
         model = model.to(device).eval()
 
         return cls(hub_name, model, processor)
-    
+
     def resize_images(self, images_rgb: np.ndarray, image_size: int) -> np.ndarray:
         """Resize images to the given size."""
         images_rgb = einops.rearrange(images_rgb, "... h w c -> ... c h w")
         images_rgb = F.interpolate(images_rgb, size=(image_size, image_size), mode="bilinear", align_corners=False)
         images_rgb = einops.rearrange(images_rgb, "... c h w -> ... h w c")
         return images_rgb.numpy()
-    
+
     @property
     def device(self) -> torch.device:
         """Get the device of the model."""
@@ -142,7 +142,7 @@ class SAMModel(VisionModel):
             raise ValueError(f"Unknown model name: {model_name}")
 
         return _name_to_hub_name[model_name]
-    
+
     def resize_images(self, images_rgb: np.ndarray, image_size: int) -> np.ndarray:
         """Resize images to the given size."""
         if image_size != 1024:

@@ -1,8 +1,6 @@
-
 import numpy as np
-from numpy.typing import ArrayLike
-import einops
 from cmap import Colormap
+from numpy.typing import ArrayLike
 
 
 def select_slice_with_max_proj(
@@ -28,9 +26,7 @@ def select_slice_with_max_proj(
         Selected slice.
     """
     if image.ndim != 3:
-        raise ValueError(
-            f"Expected 3D array, got shape {image.shape}"
-        )
+        raise ValueError(f"Expected 3D array, got shape {image.shape}")
 
     half = window // 2
     start = max(0, z - half)

@@ -1,8 +1,8 @@
-import tracksdata as td
-import pytest
 import numpy as np
+import pytest
+import tracksdata as td
 
-from img_embed_td import ImageEmbeddingNodeAttrs, ImageEmbeddingConfig
+from img_embed_td import ImageEmbeddingConfig, ImageEmbeddingNodeAttrs
 
 
 def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
@@ -37,13 +37,10 @@ def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
     return graph, frames
 
 
-@pytest.mark.parametrize(
-    "ndim", [2, 3]
-)
+@pytest.mark.parametrize("ndim", [2, 3])
 def test_image_embedding_node_attrs(
     ndim: int,
 ) -> None:
-
     cfg = ImageEmbeddingConfig(
         model_name="dinov3-vits16plus",
     )
@@ -54,4 +51,3 @@ def test_image_embedding_node_attrs(
     embed_ops.add_node_attrs(graph, frames=frames)
 
     assert cfg.model_name in graph.node_attr_keys
-

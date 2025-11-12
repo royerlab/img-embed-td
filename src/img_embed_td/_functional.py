@@ -1,26 +1,27 @@
-from typing import Literal, Any, Iterator
-from pydantic import BaseModel
-import polars as pl
-import numpy as np
-import torch
-from tqdm import tqdm
-from torch.utils.data import IterableDataset, DataLoader
+from collections.abc import Iterator
+from typing import Any, Literal
 
+import numpy as np
+import polars as pl
+import torch
+import tracksdata as td
 from cmap import Colormap
 from numpy.typing import ArrayLike
-import tracksdata as td
+from pydantic import BaseModel
+from torch.utils.data import DataLoader, IterableDataset
+from tqdm import tqdm
 from tracksdata.graph import BaseGraph
 from tracksdata.nodes._generic_nodes import BaseNodeAttrsOperator
 from tracksdata.nodes._mask import Mask
 
-from img_embed_td._models import MODEL_REGISTRY, MODEL_NDIM
-from img_embed_td._transforms import select_slice_with_max_proj, apply_colormap
+from img_embed_td._models import MODEL_NDIM, MODEL_REGISTRY
+from img_embed_td._transforms import apply_colormap, select_slice_with_max_proj
 
 
 def _mixed_collate(
     batch: list[tuple[pl.DataFrame, torch.Tensor]],
 ) -> tuple[list[pl.DataFrame], torch.Tensor]:
-    dfs, tensors = zip(*list(batch))
+    dfs, tensors = zip(*list(batch), strict=False)
     return dfs, torch.stack(tensors)
 
 
@@ -28,6 +29,7 @@ class ImageEmbeddingConfig(BaseModel):
     """
     Configuration for image embedding.
     """
+
     model_name: str
     interpolation: Literal["nearest", "bilinear", "bicubic"] = "bilinear"
     colormap: Literal["gray", "jet", "viridis", "plasma", "inferno", "magma", "cividis", "turbo", "none"] = "gray"
@@ -50,7 +52,7 @@ class SlicesDataset(IterableDataset):
         self._cmap = Colormap(config.colormap)
 
     def __iter__(self) -> Iterator[tuple[pl.DataFrame, torch.Tensor]]:
-        attr_keys  = [td.DEFAULT_ATTR_KEYS.NODE_ID, td.DEFAULT_ATTR_KEYS.T, td.DEFAULT_ATTR_KEYS.MASK]
+        attr_keys = [td.DEFAULT_ATTR_KEYS.NODE_ID, td.DEFAULT_ATTR_KEYS.T, td.DEFAULT_ATTR_KEYS.MASK]
 
         is_2d = True
         if "z" in self._graph.node_attr_keys:
@@ -60,20 +62,18 @@ class SlicesDataset(IterableDataset):
         node_attrs = self._graph.node_attrs(attr_keys=attr_keys)
 
         for (t,), t_group in node_attrs.group_by(td.DEFAULT_ATTR_KEYS.T):
-
             frame = np.asarray(self._frames[t])
 
             if is_2d:
                 frame = apply_colormap(frame, self._cmap)
                 yield t_group, torch.from_numpy(frame)
-            
+
             else:
                 for (z,), group_z in t_group.group_by("z"):
-
                     max_proj = select_slice_with_max_proj(frame, z, self._config.k_max_window)
                     max_proj = apply_colormap(max_proj, self._cmap)
                     yield group_z, torch.from_numpy(max_proj)
-            
+
 
 class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
     def __init__(
@@ -90,9 +90,13 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
         if self.output_key not in graph.node_attr_keys:
             ndim = MODEL_NDIM[self.config.model_name]
             graph.add_node_attr_key(self.output_key, default_value=np.zeros((ndim,), dtype=np.float32))
-    
+
     def _node_attrs_per_time(
-        self, t: int, *, graph: BaseGraph, **kwargs: Any,
+        self,
+        t: int,
+        *,
+        graph: BaseGraph,
+        **kwargs: Any,
     ) -> tuple[list[int], dict[str, list[Any]]]:
         raise NotImplementedError("`_node_attrs_per_time` is not available for `ImageEmbeddingNodeAttrs`")
 
@@ -102,7 +106,6 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
         *,
         frames: ArrayLike,
     ) -> None:
-
         self._init_node_attrs(graph)
 
         is_2d = "z" not in graph.node_attr_keys
@@ -112,17 +115,16 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
 
         with torch.no_grad(), torch.amp.autocast(device_type=self.model.device.type):
             for batch in tqdm(dataloader, desc="Embedding images"):
-
                 batch_df: list[pl.DataFrame] = batch[0]
                 images: torch.Tensor = batch[1]
 
                 images = self.model.resize_images(images, self.config.model_image_size)
                 features = self.model.extract_features(images, self.config.model_image_size)
                 features = features.cpu().numpy()
-            
+
                 node_ids = []
                 node_features = []
-                for df, slice_features in zip(batch_df, features):
+                for df, slice_features in zip(batch_df, features, strict=False):
                     for row in df.rows(named=True):
                         mask: Mask = row[td.DEFAULT_ATTR_KEYS.MASK]
 
@@ -134,13 +136,15 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
 
                         mask_features = mask.crop(slice_features)[mask.mask]
                         if self.config.norm_vectors:
-                            mask_features = mask_features / np.linalg.norm(mask_features, axis=1, keepdims=True).clip(min=1e-6)
+                            mask_features = mask_features / np.linalg.norm(mask_features, axis=1, keepdims=True).clip(
+                                min=1e-6
+                            )
                         node_features.append(mask_features.mean(axis=0))
                         node_ids.append(row[td.DEFAULT_ATTR_KEYS.NODE_ID])
-                
+
                 graph.update_node_attrs(
                     node_ids=node_ids,
                     attrs={
                         self.output_key: node_features,
-                    }
+                    },
                 )
