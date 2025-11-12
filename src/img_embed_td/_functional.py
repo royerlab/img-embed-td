@@ -1,13 +1,15 @@
+import warnings
 from collections.abc import Iterator
 from typing import Any, Literal
 
 import numpy as np
 import polars as pl
 import torch
+import torch.nn.functional as F
 import tracksdata as td
 from cmap import Colormap
 from numpy.typing import ArrayLike
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from torch.utils.data import DataLoader, IterableDataset
 from tqdm import tqdm
 from tracksdata.graph import BaseGraph
@@ -42,6 +44,17 @@ class ImageEmbeddingConfig(BaseModel):
     model_image_size: int = 512
 
     model_config = {"arbitrary_types_allowed": False}
+
+    @model_validator(mode="after")
+    def _validate_sam_image_size(self) -> "ImageEmbeddingConfig":
+        if self.model_name.lower().startswith("sam-"):
+            if self.model_image_size != 1024:
+                warnings.warn(
+                    "SAM models will ignore `model_image_size` by architecture, images are resized to 1024",
+                    stacklevel=2,
+                )
+            self.model_image_size = 1024
+        return self
 
 
 class SlicesDataset(IterableDataset):
@@ -118,9 +131,17 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                 batch_df: list[pl.DataFrame] = batch[0]
                 images: torch.Tensor = batch[1]
 
+                orig_shape = images.shape
                 images = self.model.resize_images(images, self.config.model_image_size)
                 features = self.model.extract_features(images, self.config.model_image_size)
-                features = features.cpu().numpy()
+                features = F.interpolate(
+                    features,
+                    size=orig_shape[1:3],
+                    mode="bilinear",
+                    align_corners=False,
+                )
+                # returning to original shape
+                features = features.permute(0, 2, 3, 1).cpu().numpy()
 
                 node_ids = []
                 node_features = []

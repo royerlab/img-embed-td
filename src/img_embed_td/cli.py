@@ -1,11 +1,14 @@
+import shutil
 from pathlib import Path
 
 import click
 import dask.array as da
 import imageio
+import numpy as np
 import tracksdata as td
 import zarr
 from dask.array.image import imread as dask_imread
+from geff.core_io._base_write import write_props_arrays
 
 from img_embed_td._functional import (
     MODEL_REGISTRY,
@@ -46,10 +49,24 @@ def main(
 ) -> None:
     graph, metadata = td.graph.IndexedRXGraph.from_geff(geff_path)
 
-    # TODO: overwrite checking
+    if output_path is None:
+        if model_name in metadata.node_props_metadata and not overwrite:
+            raise ValueError(
+                f"Property '{model_name}' already exists in {geff_path}, use `--overwrite` to overwrite it"
+            )
+        output_path = geff_path
+
+    else:
+        if output_path.exists():
+            if not overwrite:
+                raise ValueError(f"Output path {output_path} already exists, use `--overwrite` to overwrite it")
+        else:
+            shutil.copytree(geff_path, output_path)
 
     if "*" in str(frames_path):
         frames = dask_imread(frames_path)
+    elif frames_path.endswith(".npy"):
+        frames = np.load(frames_path)
     elif frames_path.is_dir():
         frames = da.from_zarr(zarr.open(frames_path))
     else:
@@ -62,7 +79,17 @@ def main(
     embed_ops = ImageEmbeddingNodeAttrs(config=cfg)
     embed_ops.add_node_attrs(graph, frames=frames)
 
-    # TODO: saving
+    zarr_version = 3 if (output_path / "zarr.json").exists() else 2
+
+    prop_metadata = write_props_arrays(
+        store=output_path,
+        group="nodes",
+        props={model_name: graph.node_attrs(attr_keys=model_name)[model_name].to_numpy()},
+        zarr_format=zarr_version,
+    )[0]
+    prop_metadata.description = f"Image embedding extracted with {model_name} model"
+    metadata.node_props_metadata[model_name] = prop_metadata
+    metadata.write(output_path)
 
 
 if __name__ == "__main__":

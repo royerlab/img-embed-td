@@ -96,6 +96,7 @@ exclude_lines = [
     "if __name__ == .__main__.:", # Don't complain if non-runnable code isn't run:
     "@(abc.)?abstractmethod", # Don't complain about abstract methods, they aren't run:
     "def .*: \\.\\.\\.$",  # Exclude function headers that end with "..." (type stubs)
+    "raise ValueError",
 ]
 
 [tool.coverage.run]
@@ -107,3 +108,6 @@ omit = [
   "src/img_embed_td/conftest.py",
   "**/_test/*.py",
 ]
+
+[tool.uv.sources]
+tracksdata = { git = "https://github.com/royerlab/tracksdata" }

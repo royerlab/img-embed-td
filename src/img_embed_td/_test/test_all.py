@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 import pytest
 import tracksdata as td
@@ -37,12 +39,24 @@ def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
     return graph, frames
 
 
-@pytest.mark.parametrize("ndim", [2, 3])
+@pytest.mark.parametrize(
+    "ndim,model_name",
+    itertools.product(
+        [2, 3],
+        [
+            "dinov3-vits16plus",
+            "dinov3-convnext-tiny",
+            "sam-base",
+            "sam2-tiny",
+        ],
+    ),
+)
 def test_image_embedding_node_attrs(
     ndim: int,
+    model_name: str,
 ) -> None:
     cfg = ImageEmbeddingConfig(
-        model_name="dinov3-vits16plus",
+        model_name=model_name,
     )
     embed_ops = ImageEmbeddingNodeAttrs(config=cfg)
 

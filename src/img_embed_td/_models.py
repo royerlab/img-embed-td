@@ -214,4 +214,8 @@ MODEL_NDIM: dict[str, int] = {
     "dinov3-vits16plus": 384,
     "dinov3-vit7b16": 4096,
     "dinov3-vith16plus": 1280,
+    "dinov3-convnext-tiny": 768,
+    "dinov3-convnext-small": 768,
+    "dinov3-convnext-base": 1024,
+    "dinov3-convnext-large": 1536,
 }
