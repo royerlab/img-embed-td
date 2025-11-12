@@ -1,0 +1,101 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "img-embed-td"
+dynamic = ["version"]
+authors = [
+    { name = "Ilan Theodoro", email = "ilan.silva@czbiohub.org" },
+    { name = "Jordao Bragantini", email = "jordao.bragantini@czbiohub.org" },
+]
+description = "Image embedding utilities for tracksdata"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.9.0",
+    "tracksdata>=0.1.0rc0",
+]
+license = "BSD-3-Clause"
+
+[project.optional-dependencies]
+test = [
+  "spatial-graph",
+  "pytest>=7.0",
+  "pytest-cov",
+  "pytest-html",
+]
+
+[project.urls]
+Documentation = "https://github.com/royerlab/img-embed-td#readme"
+Issues = "https://github.com/royerlab/img-embed-td/issues"
+Source = "https://github.com/royerlab/img-embed-td"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/img_embed_td/__about__.py"
+
+# https://docs.astral.sh/ruff
+[tool.ruff]
+target-version = "py310"
+src = ["src"]
+line-length = 120
+
+# https://docs.astral.sh/ruff/rules
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+ignore = ["E712"]
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TID",  # flake8-tidy-imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = false # default is false
+
+# https://coverage.readthedocs.io/en/6.4/config.html
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "@njit",  # numba is not supported by coverage
+    "@jitclass",
+    "@overload",
+    "pragma: no cover", # Have to re-enable the standard pragma
+    "def __repr__", # Don't complain about missing debug-only code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",  # Ignore type checking
+    "if __name__ == .__main__.:", # Don't complain if non-runnable code isn't run:
+    "@(abc.)?abstractmethod", # Don't complain about abstract methods, they aren't run:
+    "def .*: \\.\\.\\.$",  # Exclude function headers that end with "..." (type stubs)
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+parallel = true
+omit = [
+  "src/img_embed_td/__about__.py",
+  "src/img_embed_td/conftest.py",
+  "**/_test/*.py",
+]
