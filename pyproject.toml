@@ -13,6 +13,7 @@ description = "Image embedding utilities for tracksdata"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "click>=8.3.0",
     "torch>=2.9.0",
     "tracksdata>=0.1.0rc0",
 ]
@@ -30,6 +31,9 @@ test = [
 Documentation = "https://github.com/royerlab/img-embed-td#readme"
 Issues = "https://github.com/royerlab/img-embed-td/issues"
 Source = "https://github.com/royerlab/img-embed-td"
+
+[project.scripts]
+img-embed-td = "img_embed_td.cli:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
