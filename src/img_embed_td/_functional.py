@@ -11,7 +11,6 @@ import torch
 import torch.nn.functional as F
 import tracksdata as td
 import zarr
-from cmap import Colormap
 from numpy.typing import ArrayLike
 from pydantic import BaseModel, model_validator
 from torch.utils.data import DataLoader, IterableDataset
@@ -21,7 +20,7 @@ from tracksdata.nodes._generic_nodes import BaseNodeAttrsOperator
 from tracksdata.nodes._mask import Mask
 
 from img_embed_td._models import MODEL_NDIM, MODEL_REGISTRY
-from img_embed_td._transforms import apply_colormap, select_slice_with_max_proj
+from img_embed_td._transforms import ColorMapper, select_slice_with_max_proj
 
 
 def _mixed_collate(
@@ -93,7 +92,7 @@ class SlicesDataset(IterableDataset):
         self._graph = graph
         self._config = config
         self._frames = frames
-        self._cmap = Colormap(config.colormap)
+        self._cmap = ColorMapper(config.colormap)
 
     def __iter__(self) -> Iterator[tuple[pl.DataFrame, torch.Tensor]]:
         attr_keys = [td.DEFAULT_ATTR_KEYS.NODE_ID, td.DEFAULT_ATTR_KEYS.T, td.DEFAULT_ATTR_KEYS.MASK]
@@ -109,13 +108,13 @@ class SlicesDataset(IterableDataset):
             frame = np.asarray(self._frames[t])
 
             if is_2d:
-                frame = apply_colormap(frame, self._cmap)
+                frame = self._cmap(frame)
                 yield t_group, torch.from_numpy(frame)
 
             else:
                 for (z,), group_z in t_group.group_by("z"):
                     max_proj = select_slice_with_max_proj(frame, z, self._config.k_max_window)
-                    max_proj = apply_colormap(max_proj, self._cmap)
+                    max_proj = self._cmap(max_proj)
                     yield group_z, torch.from_numpy(max_proj)
 
 
