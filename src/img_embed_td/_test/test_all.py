@@ -56,8 +56,8 @@ def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
     itertools.product(
         [2, 3],
         [
-            "dinov3-vits16plus",
-            "dinov3-convnext-tiny",
+            # "dinov3-vits16plus",  # dino requires logging into HF
+            # "dinov3-convnext-tiny",
             "sam-base",
             "sam2-tiny",
         ],
@@ -92,7 +92,7 @@ def test_cli(
 ) -> None:
     in_geff_path = tmp_path / "in_graph.geff"
     frames_path = tmp_path / "frames.npy"
-    model_name = "dinov3-vits16plus"
+    model_name = "sam2-tiny"
 
     cmd_and_args = [
         str(in_geff_path),
