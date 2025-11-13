@@ -1,13 +1,16 @@
 import warnings
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
+from functools import partial
 from typing import Any, Literal
 
+import dask.array as da
 import numpy as np
 import polars as pl
 import torch
 import torch.nn.functional as F
 import tracksdata as td
+import zarr
 from cmap import Colormap
 from numpy.typing import ArrayLike
 from pydantic import BaseModel, model_validator
@@ -28,15 +31,42 @@ def _mixed_collate(
     return dfs, torch.stack(tensors)
 
 
+def _normalize_frame(
+    frame: ArrayLike,
+    lq: float | None,
+    uq: float | None,
+    clip: bool = True,
+) -> np.ndarray:
+    image = np.asarray(frame)
+
+    if lq is not None:
+        i_min = np.quantile(image, lq)
+        image = image - i_min
+
+    if uq is not None:
+        i_max = np.quantile(image, uq)
+        image = image / i_max
+
+    if clip:
+        image = np.clip(image, 0, 1)
+
+    return image
+
+
 class ImageEmbeddingConfig(BaseModel):
     """
     Configuration for image embedding.
     """
 
     model_name: str
+
     interpolation: Literal["nearest", "bilinear", "bicubic"] = "bilinear"
     colormap: Literal["gray", "jet", "viridis", "plasma", "inferno", "magma", "cividis", "turbo", "none"] = "gray"
     volume_mode: Literal["none", "slice", "k_max"] = "none"
+
+    lower_quantile: float | None = 0.0
+    upper_quantile: float | None = 0.999
+    clip: bool = False
 
     k_max_window: int = 3
     batch_size: int = 8
@@ -129,6 +159,24 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
         *,
         frames: ArrayLike,
     ) -> None:
+        chunks = (1, *frames.shape[1:])
+        if isinstance(frames, zarr.Array):
+            frames = da.from_zarr(frames, chunks=chunks)
+        elif isinstance(frames, da.Array):
+            frames = frames.rechunk(chunks)
+        else:
+            frames = da.from_array(frames, chunks=chunks)
+
+        frames = frames.map_blocks(
+            partial(
+                _normalize_frame,
+                lq=self.config.lower_quantile,
+                uq=self.config.upper_quantile,
+                clip=self.config.clip,
+            ),
+            dtype=np.float32,
+        )
+
         self._init_node_attrs(graph)
 
         is_2d = "z" not in graph.node_attr_keys
