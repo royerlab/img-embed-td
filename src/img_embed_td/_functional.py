@@ -1,5 +1,6 @@
 import warnings
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from typing import Any, Literal
 
 import numpy as np
@@ -88,6 +89,15 @@ class SlicesDataset(IterableDataset):
                     yield group_z, torch.from_numpy(max_proj)
 
 
+@contextmanager
+def _amp_context(device_type: str) -> Generator[None, None, None]:
+    if device_type == "cuda":
+        with torch.amp.autocast(device_type=device_type):
+            yield
+    else:
+        yield
+
+
 class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
     def __init__(
         self,
@@ -126,7 +136,7 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
         dataset = SlicesDataset(graph, self.config, frames)
         dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=False, collate_fn=_mixed_collate)
 
-        with torch.no_grad(), torch.amp.autocast(device_type=self.model.device.type):
+        with torch.no_grad(), _amp_context(self.model.device.type):
             for batch in tqdm(dataloader, desc="Embedding images"):
                 batch_df: list[pl.DataFrame] = batch[0]
                 images: torch.Tensor = batch[1]

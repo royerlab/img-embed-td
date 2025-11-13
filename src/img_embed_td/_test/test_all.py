@@ -56,8 +56,8 @@ def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
     itertools.product(
         [2, 3],
         [
-            # "dinov3-vits16plus",  # dino requires logging into HF
-            # "dinov3-convnext-tiny",
+            "dinov3-vits16plus",  # dino requires logging into HF
+            "dinov3-convnext-tiny",
             "sam-base",
             "sam2-tiny",
         ],

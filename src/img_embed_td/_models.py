@@ -204,7 +204,7 @@ MODEL_NDIM: dict[str, int] = {
     "sam-base": 256,
     "sam-large": 256,
     "sam-huge": 256,
-    "sam2-tiny": 768,
+    "sam2-tiny": 256,
     "sam2-small": 768,
     "sam2-base-plus": 896,
     "sam2-large": 1152,
