@@ -65,7 +65,7 @@ def main(
 
     if "*" in str(frames_path):
         frames = dask_imread(frames_path)
-    elif frames_path.endswith(".npy"):
+    elif frames_path.name.endswith(".npy"):
         frames = np.load(frames_path)
     elif frames_path.is_dir():
         frames = da.from_zarr(zarr.open(frames_path))
@@ -81,10 +81,16 @@ def main(
 
     zarr_version = 3 if (output_path / "zarr.json").exists() else 2
 
+    # only writing new values
     prop_metadata = write_props_arrays(
-        store=output_path,
+        output_path,
         group="nodes",
-        props={model_name: graph.node_attrs(attr_keys=model_name)[model_name].to_numpy()},
+        props={
+            model_name: {
+                "values": graph.node_attrs(attr_keys=model_name)[model_name].to_numpy(),
+                "missing": None,
+            },
+        },
         zarr_format=zarr_version,
     )[0]
     prop_metadata.description = f"Image embedding extracted with {model_name} model"
