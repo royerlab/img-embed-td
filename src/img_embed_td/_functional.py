@@ -64,7 +64,9 @@ class ImageEmbeddingConfig(BaseModel):
     upper_quantile: float | None = 0.999
     clip: bool = False
 
-    k_max_window: int = 3
+    image_proj_window: int = 3
+    mask_proj_mode: Literal["none", "max"] = "none"
+
     batch_size: int = 8
     norm_vectors: bool = True
 
@@ -111,7 +113,7 @@ class SlicesDataset(IterableDataset):
 
             else:
                 for (z,), group_z in t_group.group_by("z"):
-                    max_proj = select_slice_with_max_proj(frame, z, self._config.k_max_window)
+                    max_proj = select_slice_with_max_proj(frame, z, self._config.image_proj_window)
                     max_proj = self._cmap(max_proj)
                     yield group_z, torch.from_numpy(max_proj)
 
@@ -123,6 +125,25 @@ def _amp_context(device_type: str) -> Generator[None, None, None]:
             yield
     else:
         yield
+
+
+def _project_mask(
+    mask: Mask,
+    mask_proj_mode: Literal["none", "max"],
+    image_proj_window: int,
+    z: int,
+) -> Mask:
+    # converting to 2D mask
+    z_step = z - mask.bbox[0]
+
+    if mask_proj_mode == "max":
+        slice_mask = select_slice_with_max_proj(mask.mask, z_step, image_proj_window)
+
+    elif mask_proj_mode == "none":
+        slice_mask = mask.mask[z_step]
+
+    mask = Mask(slice_mask, mask.bbox[[1, 2, 4, 5]])
+    return mask
 
 
 class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
@@ -205,10 +226,12 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                         mask: Mask = row[td.DEFAULT_ATTR_KEYS.MASK]
 
                         if not is_2d:
-                            z_step = row["z"] - mask.bbox[0]
-                            slice_mask = mask.mask[z_step]
-                            # converting to 2D mask
-                            mask = Mask(slice_mask, mask.bbox[[1, 2, 4, 5]])
+                            mask = _project_mask(
+                                mask,
+                                self.config.mask_proj_mode,
+                                self.config.image_proj_window,
+                                row["z"],
+                            )
 
                         mask_features = mask.crop(slice_features)[mask.mask]
                         if self.config.norm_vectors:
