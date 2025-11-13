@@ -56,7 +56,7 @@ def _mock_data(ndim: int) -> tuple[td.graph.RustWorkXGraph, np.ndarray]:
 @pytest.mark.parametrize(
     "ndim,model_name,mask_proj_mode",
     [
-        list(
+        *list(
             itertools.product(
                 [2, 3],
                 [
