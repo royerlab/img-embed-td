@@ -58,10 +58,7 @@ class ImageEmbeddingConfig(BaseModel):
     """
 
     model_name: str
-
-    interpolation: Literal["nearest", "bilinear", "bicubic"] = "bilinear"
     colormap: Literal["gray", "jet", "viridis", "plasma", "inferno", "magma", "cividis", "turbo", "none"] = "gray"
-    volume_mode: Literal["none", "slice", "k_max"] = "none"
 
     lower_quantile: float | None = 0.0
     upper_quantile: float | None = 0.999
@@ -70,6 +67,7 @@ class ImageEmbeddingConfig(BaseModel):
     k_max_window: int = 3
     batch_size: int = 8
     norm_vectors: bool = True
+
     # obs: SAM models will ignore this by architecture, images are resized to 1024
     model_image_size: int = 512
 
@@ -217,7 +215,10 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                             mask_features = mask_features / np.linalg.norm(mask_features, axis=1, keepdims=True).clip(
                                 min=1e-6
                             )
-                        node_features.append(mask_features.mean(axis=0))
+                        mask_features = mask_features.mean(axis=0)
+                        # normalizing once again because the mean is not normalized
+                        mask_features /= np.linalg.norm(mask_features)
+                        node_features.append(mask_features)
                         node_ids.append(row[td.DEFAULT_ATTR_KEYS.NODE_ID])
 
                 graph.update_node_attrs(
