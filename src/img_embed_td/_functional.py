@@ -151,7 +151,7 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                     align_corners=False,
                 )
                 # returning to original shape
-                features = features.permute(0, 2, 3, 1).cpu().numpy()
+                features = features.permute(0, 2, 3, 1).float().cpu().numpy()
 
                 node_ids = []
                 node_features = []
