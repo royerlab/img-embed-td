@@ -4,10 +4,11 @@ from typing import Literal
 
 import numpy as np
 import pytest
+import torch
 import tracksdata as td
 
 from img_embed_td import ImageEmbeddingConfig, ImageEmbeddingNodeAttrs
-from img_embed_td._functional import _project_mask
+from img_embed_td._functional import _interpolate_features, _project_mask
 from img_embed_td._models import MODEL_NDIM
 from img_embed_td.cli import main
 
@@ -168,3 +169,15 @@ def test_mask_projection() -> None:
 
     # Verify that the two modes give different results (asymmetric pattern)
     assert not np.array_equal(mask_none.mask, mask_max.mask)
+
+
+def test_interpolate_features() -> None:
+    features = torch.randn(8, 75, 15, 14)
+    size = (333, 222)
+
+    interp_features = _interpolate_features(features, size=size, mode="bilinear", align_corners=False)
+    split_interp_features = _interpolate_features(features, size=size, mode="bilinear", align_corners=False, n_splits=4)
+
+    assert interp_features.shape == (8, 75, *size)
+    assert split_interp_features.shape == (8, 75, *size)
+    torch.testing.assert_close(interp_features, split_interp_features)

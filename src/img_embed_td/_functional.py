@@ -146,6 +146,59 @@ def _project_mask(
     return mask
 
 
+def _interpolate_features(
+    features: torch.Tensor,
+    size: tuple[int, int],
+    n_splits: int | None = None,
+    **kwargs: Any,
+) -> torch.Tensor:
+    """
+    Helper function to interpolate images larger than INT_MAX.
+
+    Parameters
+    ----------
+    features : torch.Tensor
+        Features to interpolate.
+    size : tuple[int, int]
+        New size of the features.
+    n_splits : int | None
+        Number of splits to use for interpolation. If `None`, the number of splits is determined automatically.
+    **kwargs : Any
+        Additional arguments for `torch.nn.functional.interpolate`.
+
+    Returns
+    -------
+    torch.Tensor
+        Interpolated features.
+    """
+    if n_splits is None:
+        n_splits = 1
+        while np.prod(features.shape) / n_splits >= 2**31:
+            n_splits *= 2
+
+    if n_splits > 1:
+        features = torch.cat(
+            [
+                F.interpolate(
+                    chunk,
+                    size=size,
+                    **kwargs,
+                )
+                for chunk in torch.split(features, n_splits, dim=1)
+            ],
+            dim=1,
+        )
+
+    else:
+        features = F.interpolate(
+            features,
+            size=size,
+            **kwargs,
+        )
+
+    return features
+
+
 class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
     def __init__(
         self,
@@ -210,7 +263,7 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                 orig_shape = images.shape
                 images = self.model.resize_images(images, self.config.model_image_size)
                 features = self.model.extract_features(images, self.config.model_image_size)
-                features = F.interpolate(
+                features = _interpolate_features(
                     features,
                     size=orig_shape[1:3],
                     mode="bilinear",
