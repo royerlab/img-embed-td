@@ -31,8 +31,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             else:
                 deselected.append(item)
         else:
-            # Skip all other tests
-            deselected.append(item)
+            # Run all other tests
+            selected.append(item)
 
     config.hook.pytest_deselected(items=deselected)
     items[:] = selected
