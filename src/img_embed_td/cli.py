@@ -64,7 +64,7 @@ def main(
             shutil.copytree(geff_path, output_path)
 
     if "*" in str(frames_path):
-        frames = dask_imread(frames_path)
+        frames = dask_imread(str(frames_path))
     elif frames_path.name.endswith(".npy"):
         frames = np.load(frames_path)
     elif frames_path.is_dir():
