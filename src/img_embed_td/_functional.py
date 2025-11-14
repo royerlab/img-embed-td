@@ -173,7 +173,8 @@ def _interpolate_features(
     """
     if n_splits is None:
         n_splits = 1
-        while np.prod(features.shape) / n_splits >= 2**31:
+        size_fraction = np.prod((*features.shape[:2], *size), dtype=float) / 2**31
+        while size_fraction / n_splits >= 1:
             n_splits *= 2
 
     if n_splits > 1:
