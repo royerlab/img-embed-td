@@ -18,7 +18,7 @@ dependencies = [
     "einops>=0.8.1",
     "torch>=2.9.0",
     "torchvision>=0.24.0",
-    "tracksdata>=0.1.0rc0",
+    "tracksdata",
     "transformers>=4.57.1",
 ]
 license = "BSD-3-Clause"
@@ -108,6 +108,3 @@ omit = [
   "src/img_embed_td/conftest.py",
   "**/_test/*.py",
 ]
-
-[tool.uv.sources]
-tracksdata = { git = "https://github.com/royerlab/tracksdata" }
