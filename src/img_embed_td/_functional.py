@@ -104,6 +104,11 @@ class SlicesDataset(IterableDataset):
 
         node_attrs = self._graph.node_attrs(attr_keys=attr_keys)
 
+        if not is_2d:
+            node_attrs = node_attrs.with_columns(
+                pl.col("z").round(0).cast(pl.Int32).alias("z"),
+            )
+
         for (t,), t_group in node_attrs.group_by(td.DEFAULT_ATTR_KEYS.T):
             frame = np.asarray(self._frames[t])
 
