@@ -61,8 +61,8 @@ class ImageEmbeddingConfig(BaseModel):
     colormap: Literal["gray", "jet", "viridis", "plasma", "inferno", "magma", "cividis", "turbo", "none"] = "gray"
 
     lower_quantile: float | None = 0.0
-    upper_quantile: float | None = 0.999
-    clip: bool = False
+    upper_quantile: float | None = 0.99999
+    clip: bool = True
 
     image_proj_window: int = 3
     mask_proj_mode: Literal["none", "max"] = "none"
@@ -71,7 +71,7 @@ class ImageEmbeddingConfig(BaseModel):
     norm_vectors: bool = True
 
     # obs: SAM models will ignore this by architecture, images are resized to 1024
-    model_image_size: int = 512
+    model_image_size: int = 1024
 
     model_config = {"arbitrary_types_allowed": False}
 
@@ -269,6 +269,10 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                 orig_shape = images.shape
                 images = self.model.resize_images(images, self.config.model_image_size)
                 features = self.model.extract_features(images, self.config.model_image_size)
+
+                if self.config.norm_vectors:
+                    features = F.normalize(features, dim=1, p=2)
+
                 features = _interpolate_features(
                     features,
                     size=orig_shape[1:3],
@@ -293,10 +297,6 @@ class ImageEmbeddingNodeAttrs(BaseNodeAttrsOperator):
                             )
 
                         mask_features = mask.crop(slice_features)[mask.mask]
-                        if self.config.norm_vectors:
-                            mask_features = mask_features / np.linalg.norm(mask_features, axis=1, keepdims=True).clip(
-                                min=1e-6
-                            )
                         mask_features = mask_features.mean(axis=0)
                         # normalizing once again because the mean is not normalized
                         mask_features /= np.linalg.norm(mask_features)
